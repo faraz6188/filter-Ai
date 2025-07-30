@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Search POC</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        #searchInput { width: 300px; padding: 8px; font-size: 16px; }
+        #suggestions { margin-top: 10px; border: 1px solid #ccc; padding: 10px; min-height: 50px; }
+        .suggestion-group h3 { margin-top: 0; margin-bottom: 5px; font-size: 1em; color: #555; }
+        .suggestion-group ul { list-style: none; padding-left: 0; margin-bottom: 15px; }
+        .suggestion-group li { padding: 5px 0; }
+        .suggestion-group li a { text-decoration: none; color: #007bff; }
+        .suggestion-group li a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>AI Search POC</h1>
+    <input type="text" id="searchInput" placeholder="Type to search...">
+    <div id="suggestions">
+        </div>
+
+    <script>
+        const searchInput = document.getElementById('searchInput');
+        const suggestionsDiv = document.getElementById('suggestions');
+        let debounceTimer;
+
+        searchInput.addEventListener('keyup', () => {
+            clearTimeout(debounceTimer);
+            const query = searchInput.value;
+
+            if (query.length < 2) { // Don't search for very short queries
+                suggestionsDiv.innerHTML = '';
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                fetchSuggestions(query);
+            }, 300); // Debounce requests by 300ms
+        });
+
+        async function fetchSuggestions(query) {
+            try {
+                // Replace with your actual backend URL
+                const response = await fetch('http://127.0.0.1:5001/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query }),
+                });
+
+                if (!response.ok) {
+                    console.error('Error from server:', response.status, await response.text());
+                    suggestionsDiv.innerHTML = '<p>Error fetching suggestions.</p>';
+                    return;
+                }
+
+                const data = await response.json();
+                displaySuggestions(data);
+            } catch (error) {
+                console.error('Fetch error:', error);
+                suggestionsDiv.innerHTML = '<p>Could not connect to search service.</p>';
+            }
+        }
+
+        function displaySuggestions(data) {
+            let html = '';
+
+            if (data.categories && data.categories.length > 0) {
+                html += '<div class="suggestion-group"><h3>Categories</h3><ul>';
+                data.categories.forEach(category => {
+                    // You might want to make categories clickable to filter by them
+                    html += `<li>${escapeHTML(category)}</li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (data.products && data.products.length > 0) {
+                html += '<div class="suggestion-group"><h3>Products</h3><ul>';
+                data.products.forEach(product => {
+                    html += `<li><a href="https://${escapeHTML(product.url)}" target="_blank">${escapeHTML(product.name)}</a></li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (html === '') {
+                html = '<p>No suggestions found.</p>';
+            }
+
+            suggestionsDiv.innerHTML = html;
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>"']/g, function (match) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[match];
+            });
+        }
+    </script>
+</body>
+</html>
